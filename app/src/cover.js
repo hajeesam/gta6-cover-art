@@ -82,14 +82,18 @@ function mixRgb(a, b, t) {
   return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
 
-/** Posterize + duotone-map one panel's pixels, in place, for the given grade. */
-export function gradePanelPixels(imageData, gradeId) {
+/** Posterize + duotone-map one panel's pixels, in place, for the given grade.
+ *  `opts.soft` keeps more of the warm original colour (~60% duotone / 40%
+ *  original, softer posterize) instead of a flat duotone — used by the
+ *  hero-left hero so the sunset stays sunset-coloured, not flat magenta. */
+export function gradePanelPixels(imageData, gradeId, opts = {}) {
   const spec = GRADE_TABLE[gradeId] || GRADE_TABLE.heatwave;
   const data = imageData.data;
   const shadow = hexToRgb(spec.stops[0]);
   const mid = hexToRgb(spec.stops[1]);
   const high = hexToRgb(spec.stops[2]);
-  const steps = spec.levels - 1;
+  const steps = (opts.soft ? Math.max(spec.levels, 6) : spec.levels) - 1;
+  const keep = opts.soft ? 0.4 : 0.12; // fraction of the original colour kept
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
@@ -98,9 +102,9 @@ export function gradePanelPixels(imageData, gradeId) {
     const post = Math.round(lum * steps) / steps;
     const mapped = post < 0.5 ? mixRgb(shadow, mid, post * 2) : mixRgb(mid, high, (post - 0.5) * 2);
     // Keep a whisper of the original hue so faces stay readable.
-    data[i] = mapped[0] * 0.88 + r * 0.12;
-    data[i + 1] = mapped[1] * 0.88 + g * 0.12;
-    data[i + 2] = mapped[2] * 0.88 + b * 0.12;
+    data[i] = mapped[0] * (1 - keep) + r * keep;
+    data[i + 1] = mapped[1] * (1 - keep) + g * keep;
+    data[i + 2] = mapped[2] * (1 - keep) + b * keep;
     if (spec.warm) {
       data[i] = Math.min(255, data[i] + spec.warm);
       data[i + 2] = Math.max(0, data[i + 2] - spec.warm * 0.6);
@@ -109,8 +113,9 @@ export function gradePanelPixels(imageData, gradeId) {
   return spec;
 }
 
-/** Grade one photo into an offscreen canvas the size of its panel. */
-export function gradePhotoToPanel(photo, panelW, panelH, crop, gradeId) {
+/** Grade one photo into an offscreen canvas the size of its panel.
+ *  `opts.soft` softens the duotone for the hero (see gradePanelPixels). */
+export function gradePhotoToPanel(photo, panelW, panelH, crop, gradeId, opts = {}) {
   const spec = GRADE_TABLE[gradeId] || GRADE_TABLE.heatwave;
   const w = Math.max(8, Math.min(900, Math.round(panelW)));
   const h = Math.max(8, Math.round((panelH / panelW) * w));
@@ -135,7 +140,7 @@ export function gradePhotoToPanel(photo, panelW, panelH, crop, gradeId) {
     octx.fillRect(0, 0, w, h);
   }
   const imageData = octx.getImageData(0, 0, w, h);
-  gradePanelPixels(imageData, gradeId);
+  gradePanelPixels(imageData, gradeId, opts);
   octx.putImageData(imageData, 0, 0);
   if (spec.halftone) paintHalftone(octx, imageData, w, h);
   // Sunset wash, soft-light so the duotone still reads through.
@@ -219,12 +224,45 @@ export function panelRects(layout, W, H) {
   }
   // Hero layouts.
   const mirror = layout === 'hero-right';
+  // Bottom thumbnail strip (hero-left only): 4 small panels across the full
+  // width, each a different crop + grade of the two sample photos, so the
+  // cover reads denser like a GTA poster bottom band. One warm, one neon,
+  // one duotone (heatwave), one warm sunset — they read as different shots.
+  const STRIP_GRADES = ['golden', 'neon', 'heatwave', 'sunset'];
+  const STRIP_CROPS = [
+    { ox: -0.55, oy: 0.1, zoom: 1.9 }, // tight, face-side
+    { ox: 0, oy: 0, zoom: 1 }, // wide
+    { ox: 0.55, oy: -0.35, zoom: 2.2 }, // detail
+    { ox: 0.35, oy: 0.35, zoom: 1.5 }, // low, car-side
+  ];
+  function stripRects(y, h) {
+    const gap = W * 0.012;
+    const sw = (W * 0.93 - gap * 3) / 4;
+    return [0, 1, 2, 3].map((i) => ({
+      x: W * 0.035 + i * (sw + gap), y, w: sw, h, rot: 0,
+      strip: true, grade: STRIP_GRADES[i], crop: STRIP_CROPS[i],
+    }));
+  }
   if (portrait) {
+    if (layout === 'hero-left') {
+      const hero = { x: W * 0.04, y: H * 0.04, w: W * 0.92, h: H * 0.40, rot: -0.03, hero: true };
+      const small = [0, 1, 2].map((i) => ({
+        x: W * (0.04 + i * 0.32), y: H * 0.47, w: W * 0.28, h: H * 0.19, rot: 0.05,
+      }));
+      return [hero, ...small, ...stripRects(H * 0.69, H * 0.10)];
+    }
     const hero = { x: W * 0.04, y: H * 0.04, w: W * 0.92, h: H * 0.46, rot: -0.03, hero: true };
     const small = [0, 1, 2].map((i) => ({
       x: W * (0.04 + i * 0.32), y: H * 0.53, w: W * 0.28, h: H * 0.22, rot: 0.05,
     }));
     return [hero, ...small];
+  }
+  if (layout === 'hero-left') {
+    const hero = { x: W * 0.035, y: H * 0.05, w: W * 0.54, h: H * 0.66, rot: -0.03, hero: true };
+    const small = [0, 1, 2].map((i) => ({
+      x: W * 0.615, y: H * (0.05 + i * 0.22), w: W * 0.35, h: H * 0.20, rot: 0.05,
+    }));
+    return [hero, ...small, ...stripRects(H * 0.73, H * 0.12)];
   }
   const hero = mirror
     ? { x: W * 0.42, y: H * 0.06, w: W * 0.54, h: H * 0.8, rot: 0.03, hero: true }
@@ -355,6 +393,37 @@ function drawBarcode(ctx, x, y, w, h, seed) {
   ctx.restore();
 }
 
+function drawStripedBar(ctx, x, y, w, h, text, scale) {
+  ctx.save();
+  // Yellow bar with repeating magenta diagonal stripes, dark text on top.
+  ctx.fillStyle = '#FFD24A';
+  ctx.fillRect(x, y, w, h);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.strokeStyle = '#FF2E93';
+  ctx.lineWidth = Math.max(6, 12 * scale);
+  const step = Math.max(18, 30 * scale);
+  ctx.beginPath();
+  for (let px = x - h; px < x + w + h; px += step) {
+    ctx.moveTo(px, y + h);
+    ctx.lineTo(px + h, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+  ctx.font = `${Math.round(Math.max(16, 24 * scale))}px Anton, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(3, 5 * scale);
+  ctx.strokeStyle = '#FFF6D8';
+  ctx.strokeText(text, x + w / 2, y + h / 2 + 1);
+  ctx.fillStyle = '#05030F';
+  ctx.fillText(text, x + w / 2, y + h / 2 + 1);
+  ctx.restore();
+}
+
 function fitTitleSize(ctx, lines, maxW, start) {
   let size = start;
   while (size > 20) {
@@ -476,7 +545,14 @@ export function renderCover(canvas, state) {
     if (rect.titleCell) return; // center cell is the title block, not a photo
     const panel = state.panels[i % state.panels.length];
     const photo = panel && panel.photo >= 0 ? state.photos[panel.photo] : null;
-    const graded = gradePhotoToPanel(photo, rect.w, rect.h, panel ? panel.crop : { ox: 0, oy: 0, zoom: 1 }, state.grade);
+    // Strip panels carry their own crop + grade presets; a user drag-crop on
+    // a strip panel wins once it differs from the default crop.
+    const defaultCrop = panel && panel.crop && panel.crop.ox === 0 && panel.crop.oy === 0 && (panel.crop.zoom || 1) === 1;
+    const crop = rect.crop && defaultCrop ? rect.crop : (panel ? panel.crop : { ox: 0, oy: 0, zoom: 1 });
+    // Hero-left hero keeps its halftone but blends ~60% duotone with the
+    // warm original, so the sunset colour survives instead of flat magenta.
+    const softHero = !!rect.hero && state.layout === 'hero-left';
+    const graded = gradePhotoToPanel(photo, rect.w, rect.h, crop, rect.grade || state.grade, { soft: softHero });
     drawPanelWithSeam(ctx, graded, rect, W);
     // The top-right small panel sits under the title block, so its sticker
     // would hide behind the lettering — skip it there.
@@ -512,12 +588,21 @@ export function renderCover(canvas, state) {
       ? { x: W * 0.06, y: H * 0.3, w: W * 0.88, h: H * 0.2 }
       : { x: W * 0.03, y: H * 0.03, w: W * 0.44, h: H * 0.38 };
   } else {
+    // Hero-left: taller title zone so the title can grow ~20% (the block
+    // height cap in paintTitleBlock is what sizes it).
     zone = portrait
       ? { x: W * 0.06, y: H * 0.3, w: W * 0.88, h: H * 0.2 }
-      : { x: W * 0.55, y: H * 0.03, w: W * 0.42, h: H * 0.38 };
+      : { x: W * 0.55, y: H * 0.03, w: W * 0.42, h: H * 0.46 };
   }
   const isGrid = state.layout === 'nine-grid' || state.layout === 'center-3x3';
   const titleInfo = paintTitleBlock(ctx, state, zone, W, H, isGrid ? zone.h * 0.26 : 0);
+
+  // Hero-left striped release bar under the subtitle (fresh wording, not
+  // rank 1's "IN STORES SOMEWHERE SOON").
+  if (state.layout === 'hero-left') {
+    const barH = Math.max(30, 42 * scale);
+    drawStripedBar(ctx, titleInfo.zone.x, titleInfo.bottom + 12 * scale, titleInfo.zone.w, barH, 'OUT NOW • LEONIDA • 2026', scale);
+  }
 
   // Grid layouts have no free margin: the tagline, HEAT stars and barcode
   // live inside the title cell instead of as overlays on the photos.
@@ -543,7 +628,7 @@ export function renderCover(canvas, state) {
   if (state.tagline.trim() && !isGrid && state.layout !== 'full-bleed') {
     const barW = portrait ? W * 0.92 : W * 0.54;
     const barX = portrait ? W * 0.04 : (state.layout === 'hero-right' ? W * 0.42 : W * 0.035);
-    const barY = state.layout === 'tilted' ? H * 0.95 : (portrait ? H * 0.78 : H * 0.88);
+    const barY = state.layout === 'tilted' ? H * 0.95 : (portrait ? (state.layout === 'hero-left' ? H * 0.83 : H * 0.78) : H * 0.88);
     ctx.save();
     ctx.translate(barX + barW / 2, barY);
     ctx.rotate(-0.035);
