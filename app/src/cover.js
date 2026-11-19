@@ -447,10 +447,9 @@ function paintTitleBlock(ctx, state, zone, W, H, reserve) {
   // first baseline at size*0.95, one size*0.98 step per line, then the subtitle.
   const blockHeight = (s) => s * 0.95 + titleLines.length * s * 0.98 + (state.subtitle.trim() ? Math.max(30, s * 0.34) : 0);
   while (size > 20 && blockHeight(size) > zone.h - (reserve || 0)) size -= 4;
-  const grad = ctx.createLinearGradient(zone.x, zone.y, zone.x + zone.w, zone.y + zone.h);
-  grad.addColorStop(0, '#FFE45C');
-  grad.addColorStop(0.5, '#FF7A1A');
-  grad.addColorStop(1, '#FF2E93');
+  // Title gradient is built per line, top-to-bottom across that line's own
+  // glyph height, so the full yellow -> orange -> pink run reads on every
+  // line instead of washing out across the whole zone diagonal.
   ctx.save();
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -465,16 +464,27 @@ function paintTitleBlock(ctx, state, zone, W, H, reserve) {
     ctx.lineWidth = Math.max(6, size * 0.055);
     ctx.strokeStyle = '#05030F';
     ctx.strokeText(line, lx, y);
+    // Per-line vertical gradient: bright yellow cap -> saturated orange
+    // mid -> magenta base, the whole run inside one line's glyph height.
+    const grad = ctx.createLinearGradient(lx, y - size * 0.72, lx, y + size * 0.08);
+    grad.addColorStop(0, '#FFE45C');
+    grad.addColorStop(0.5, '#FF7A1A');
+    grad.addColorStop(1, '#FF2E93');
     ctx.fillStyle = grad;
     ctx.fillText(line, lx, y);
     y += size * 0.98;
   });
-  // Script subtitle tucked under the title, cyan with a magenta glow.
+  // Script subtitle OVERLAPS the title's bottom row (like rank 1's
+  // "Coastline Nights" tucked over "HEATWAVE"): its baseline sits just
+  // below the last title baseline, so ~35-50% of the script's letter
+  // height rides up into the bottom line. Dark stroke + scrim keep it
+  // readable where it crosses the lettering.
   if (state.subtitle.trim()) {
     const subSize = Math.round(Math.max(30, size * 0.34));
     const subText = state.subtitle.trim();
     const subX = zone.x + size * 0.1;
-    const subY = y + subSize * 0.55;
+    const lastBaseline = y - size * 0.98;
+    const subY = lastBaseline + size * 0.1;
     ctx.font = `${subSize}px Pacifico, cursive`;
     // Soft dark scrim behind the script so it stays readable where it sits
     // over a busy photo; horizontal gradient fades out at both ends.
@@ -482,13 +492,17 @@ function paintTitleBlock(ctx, state, zone, W, H, reserve) {
     const padX = subSize * 0.7;
     const scrim = ctx.createLinearGradient(subX - padX, 0, subX + subW + padX, 0);
     scrim.addColorStop(0, 'rgba(5,3,15,0)');
-    scrim.addColorStop(0.18, 'rgba(5,3,15,0.55)');
-    scrim.addColorStop(0.82, 'rgba(5,3,15,0.55)');
+    scrim.addColorStop(0.18, 'rgba(5,3,15,0.62)');
+    scrim.addColorStop(0.82, 'rgba(5,3,15,0.62)');
     scrim.addColorStop(1, 'rgba(5,3,15,0)');
     ctx.save();
     ctx.fillStyle = scrim;
-    ctx.fillRect(subX - padX, subY - subSize * 0.8, subW + padX * 2, subSize * 1.15);
+    ctx.fillRect(subX - padX, subY - subSize * 0.62, subW + padX * 2, subSize * 0.95);
     ctx.restore();
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(3, subSize * 0.1);
+    ctx.strokeStyle = '#05030F';
+    ctx.strokeText(subText, subX, subY);
     ctx.fillStyle = '#3FF6E0';
     ctx.shadowColor = '#FF2E93';
     ctx.shadowBlur = 22;
