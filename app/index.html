@@ -3,21 +3,68 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cover Snap</title>
+<title>Palm Heist — Cover Studio</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 <main class="app">
-  <section class="controls">
-    <h1>Cover Snap</h1>
-    <p>A photo and a caption, made into a square cover.</p>
-    <label>Photo <input id="photo" type="file" accept="image/*"></label>
-    <label>Caption <input id="caption" type="text" maxlength="40" value="Sunset Heist"></label>
-    <button id="export" type="button">Export PNG 1080 x 1080</button>
+  <section class="controls" aria-label="Cover editor">
+    <h1>Palm Heist</h1>
+    <p class="tagline">Cover Studio — turn your photos into a Vice-style poster cover. Three steps: add photos, write the words, export.</p>
+
+    <fieldset>
+      <legend>1 · Your photos (up to 4)</legend>
+      <div id="photo-slots"></div>
+      <p class="hint">Photos stay on your machine — nothing is uploaded.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>2 · Words</legend>
+      <label>Title <input id="title" type="text" maxlength="24" value="PALM HEIST"></label>
+      <label>Subtitle (script) <input id="subtitle" type="text" maxlength="40" value="one more sunset"></label>
+      <label>Tagline bar <input id="tagline" type="text" maxlength="48" value="EVERY STREET TELLS A STORY"></label>
+      <label>Location tab <input id="location" type="text" maxlength="14" value="LEONIDA"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>3 · Layout</legend>
+      <div id="layout-picker" class="picker" role="group" aria-label="Cover layout"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>4 · Colour grade</legend>
+      <div id="grade-picker" class="picker" role="group" aria-label="Colour grade"></div>
+      <label class="check"><input id="grain" type="checkbox" checked> Film grain</label>
+      <label class="check"><input id="vignette" type="checkbox" checked> Vignette</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Panels — click a panel on the cover to crop it</legend>
+      <div id="panel-list"></div>
+      <p class="hint">Drag a panel to move its photo · scroll over it to zoom.</p>
+    </fieldset>
+
+    <div class="actions">
+      <button id="undo" type="button">Undo</button>
+      <button id="redo" type="button">Redo</button>
+    </div>
+
+    <fieldset>
+      <legend>Export PNG</legend>
+      <div class="actions export">
+        <button id="export-1080x1080" type="button">1080 × 1080</button>
+        <button id="export-1080x1350" type="button">1080 × 1350</button>
+        <button id="export-1920x1080" type="button">1920 × 1080</button>
+        <button id="export-all" type="button" class="primary">Export all 3 sizes</button>
+      </div>
+    </fieldset>
     <p id="status" role="status"></p>
   </section>
-  <canvas id="cover" width="1080" height="1080" aria-label="The cover"></canvas>
+  <section class="preview" aria-label="Live cover preview">
+    <canvas id="cover" width="1920" height="1080" aria-label="The cover"></canvas>
+  </section>
 </main>
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/editor.js"></script>
 </body>
 </html>
