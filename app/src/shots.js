@@ -38,6 +38,22 @@ export async function runShot(shot, query, state) {
   state.photos[2] = first;
   state.photos[3] = second;
 
+  // Per-panel crop overrides for this shot only, so a face that the default
+  // cover-fit would cut off can be pulled back into frame:
+  // `crops=1:0.41,1.92,1;2:0,0,1.5` means panel 1 -> {ox,oy,zoom}, etc.
+  // Panels are indexed by panel-rect order, the same order renderCover uses.
+  const cropsParam = query.get('crops');
+  if (cropsParam) {
+    for (const part of cropsParam.split(';')) {
+      const [idxStr, vals] = part.split(':');
+      const nums = (vals || '').split(',').map(Number);
+      const i = Number(idxStr);
+      if (Number.isInteger(i) && state.panels[i] && nums.length === 3 && nums.every(Number.isFinite)) {
+        state.panels[i].crop = { ox: nums[0], oy: nums[1], zoom: nums[2] };
+      }
+    }
+  }
+
   if (shot === 'cover') {
     document.body.classList.add('shot-cover');
     setCoverSize(canvas, query.get('size'));

@@ -403,11 +403,27 @@ function paintTitleBlock(ctx, state, zone, W, H, reserve) {
   // Script subtitle tucked under the title, cyan with a magenta glow.
   if (state.subtitle.trim()) {
     const subSize = Math.round(Math.max(30, size * 0.34));
+    const subText = state.subtitle.trim();
+    const subX = zone.x + size * 0.1;
+    const subY = y + subSize * 0.55;
     ctx.font = `${subSize}px Pacifico, cursive`;
+    // Soft dark scrim behind the script so it stays readable where it sits
+    // over a busy photo; horizontal gradient fades out at both ends.
+    const subW = ctx.measureText(subText).width;
+    const padX = subSize * 0.7;
+    const scrim = ctx.createLinearGradient(subX - padX, 0, subX + subW + padX, 0);
+    scrim.addColorStop(0, 'rgba(5,3,15,0)');
+    scrim.addColorStop(0.18, 'rgba(5,3,15,0.55)');
+    scrim.addColorStop(0.82, 'rgba(5,3,15,0.55)');
+    scrim.addColorStop(1, 'rgba(5,3,15,0)');
+    ctx.save();
+    ctx.fillStyle = scrim;
+    ctx.fillRect(subX - padX, subY - subSize * 0.8, subW + padX * 2, subSize * 1.15);
+    ctx.restore();
     ctx.fillStyle = '#3FF6E0';
     ctx.shadowColor = '#FF2E93';
     ctx.shadowBlur = 22;
-    ctx.fillText(state.subtitle.trim(), zone.x + size * 0.1, y + subSize * 0.55);
+    ctx.fillText(subText, subX, subY);
     ctx.shadowBlur = 0;
     y += subSize;
   }
