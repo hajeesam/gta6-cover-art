@@ -2,7 +2,7 @@
 // Draws a multi-panel GTA-style poster cover onto any canvas, at any size.
 // Every panel is graded (posterize + duotone + optional halftone), then the
 // lettering, badge, HEAT meter, barcode and location tab are painted on top.
-// No network, no library: plain Canvas 2D, local fonts only.
+// No network, no library: plain Canvas 2D, system fonts only.
 
 export const LAYOUTS = [
   { id: 'hero-left', label: 'Hero Left' },
@@ -307,7 +307,7 @@ function drawSticker(ctx, text, x, y, scale, rot) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rot);
-  ctx.font = `${Math.round(26 * scale)}px Anton, sans-serif`;
+  ctx.font = `${Math.round(26 * scale)}px 'Arial Black', Impact, sans-serif`;
   const w = ctx.measureText(text).width + 28 * scale;
   const h = 40 * scale;
   ctx.fillStyle = '#FFF6D8';
@@ -348,7 +348,7 @@ function drawStarburst(ctx, cx, cy, r, scale) {
   ctx.fillStyle = '#05030F';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `${Math.round(22 * scale)}px Anton, sans-serif`;
+  ctx.font = `${Math.round(22 * scale)}px 'Arial Black', Impact, sans-serif`;
   ctx.fillText('EST.', 0, -12 * scale);
   ctx.fillText('2026', 0, 12 * scale);
   ctx.restore();
@@ -412,7 +412,7 @@ function drawStripedBar(ctx, x, y, w, h, text, scale) {
   }
   ctx.stroke();
   ctx.restore();
-  ctx.font = `${Math.round(Math.max(16, 24 * scale))}px Anton, sans-serif`;
+  ctx.font = `${Math.round(Math.max(16, 24 * scale))}px 'Arial Black', Impact, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
@@ -427,7 +427,7 @@ function drawStripedBar(ctx, x, y, w, h, text, scale) {
 function fitTitleSize(ctx, lines, maxW, start) {
   let size = start;
   while (size > 20) {
-    ctx.font = `${size}px Anton, sans-serif`;
+    ctx.font = `${size}px 'Arial Black', Impact, sans-serif`;
     const widest = Math.max(...lines.map((l) => ctx.measureText(l).width));
     if (widest <= maxW) return size;
     size -= 4;
@@ -457,7 +457,7 @@ function paintTitleBlock(ctx, state, zone, W, H, reserve) {
   let y = zone.y + size * 0.95;
   titleLines.forEach((line, i) => {
     const lx = zone.x + (i === 1 ? size * 0.12 : 0);
-    ctx.font = `${size}px Anton, sans-serif`;
+    ctx.font = `${size}px 'Arial Black', Impact, sans-serif`;
     // Hard offset shadow, then black outline, then gradient fill.
     ctx.fillStyle = '#05030F';
     ctx.fillText(line, lx + size * 0.045, y + size * 0.045);
@@ -485,7 +485,7 @@ function paintTitleBlock(ctx, state, zone, W, H, reserve) {
     const subX = zone.x + size * 0.1;
     const lastBaseline = y - size * 0.98;
     const subY = lastBaseline + size * 0.1;
-    ctx.font = `${subSize}px Pacifico, cursive`;
+    ctx.font = `${subSize}px 'Comic Sans MS', 'Brush Script MT', cursive`;
     // Soft dark scrim behind the script so it stays readable where it sits
     // over a busy photo; horizontal gradient fades out at both ends.
     const subW = ctx.measureText(subText).width;
@@ -625,7 +625,7 @@ export function renderCover(canvas, state) {
     const ts = Math.max(14, titleInfo.size * 0.14);
     ctx.save();
     ctx.fillStyle = '#FFD24A';
-    ctx.font = `${Math.round(ts)}px Anton, sans-serif`;
+    ctx.font = `${Math.round(ts)}px 'Arial Black', Impact, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     try { ctx.letterSpacing = `${Math.round(3 * scale)}px`; } catch (e) { /* older canvas */ }
@@ -653,7 +653,7 @@ export function renderCover(canvas, state) {
     ctx.fillRect(-barW / 2, -barH / 2, barW, barH);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#FFF6D8';
-    ctx.font = `${Math.round(Math.max(16, 28 * scale))}px Anton, sans-serif`;
+    ctx.font = `${Math.round(Math.max(16, 28 * scale))}px 'Arial Black', Impact, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     try { ctx.letterSpacing = `${Math.round(4 * scale)}px`; } catch (e) { /* older canvas */ }
@@ -669,7 +669,7 @@ export function renderCover(canvas, state) {
   // Location tab, top-right.
   ctx.save();
   ctx.fillStyle = '#FFD24A';
-  ctx.font = `${Math.round(Math.max(16, 26 * scale))}px Anton, sans-serif`;
+  ctx.font = `${Math.round(Math.max(16, 26 * scale))}px 'Arial Black', Impact, sans-serif`;
   const locText = (state.location || 'LEONIDA').toUpperCase();
   const locW = ctx.measureText(locText).width + 36 * scale;
   const tabX = W - locW - W * 0.02;
@@ -688,7 +688,7 @@ export function renderCover(canvas, state) {
     const meterY = H - Math.max(72, 104 * scale);
     ctx.save();
     ctx.fillStyle = '#FFF6D8';
-    ctx.font = `${Math.round(Math.max(14, 22 * scale))}px Anton, sans-serif`;
+    ctx.font = `${Math.round(Math.max(14, 22 * scale))}px 'Arial Black', Impact, sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText('HEAT', W * 0.62, meterY);
@@ -711,7 +711,7 @@ export function renderCoverToSize(state, w, h) {
   return canvas;
 }
 
-/** Wait until the bundled fonts are ready, then draw. */
+/** Wait until the system fonts are ready, then draw. */
 export async function drawCoverWhenFontsReady(canvas, state) {
   try {
     await document.fonts.ready;
